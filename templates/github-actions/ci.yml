@@ -1,0 +1,166 @@
+# Sylphx Testing Playbook — reference GitHub Actions workflow
+#
+# Opinionated defaults for the top ~10 testing methods:
+#   - Unit + integration tests
+#   - Type-level (tsc)
+#   - Property-based
+#   - Contract (Zod schemas)
+#   - SAST (Semgrep)
+#   - Dependency scan (bun audit)
+#   - Mutation testing (nightly)
+#   - E2E (Playwright)
+#   - Load testing (k6, against staging on main)
+#   - Schema migration lint (Atlas)
+#
+# Copy into `.github/workflows/ci.yml`. Adapt the commands and paths to
+# your project's test scripts.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Nightly mutation + chaos + load runs
+    - cron: '0 2 * * *'
+
+env:
+  BUN_VERSION: '1.3.11'
+  NODE_VERSION: '24'
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Fast feedback tier — must run on every PR
+  # ──────────────────────────────────────────────
+  lint-and-type:
+    name: Lint + typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Biome / ESLint
+        run: bun run lint
+      - name: Typecheck (includes type-level tests)
+        run: bun run typecheck
+
+  unit-integration:
+    name: Unit + integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun test
+
+  # ──────────────────────────────────────────────
+  # Security tier
+  # ──────────────────────────────────────────────
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/typescript
+            p/owasp-top-ten
+            .semgrep.yml
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: bun audit
+        run: bun audit --audit-level=high
+      # Optional: Socket.dev for supply-chain risk scoring
+      # - uses: SocketSecurity/action@v1
+
+  migration-lint:
+    name: Schema migration safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: contains(github.event.pull_request.changed_files, 'migrations/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ariga/setup-atlas@v0
+      - name: Atlas migrate lint
+        run: atlas migrate lint --env ci --latest 1
+
+  # ──────────────────────────────────────────────
+  # E2E tier — run on main + nightly
+  # ──────────────────────────────────────────────
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install chromium --with-deps
+      - name: Playwright E2E (shard ${{ matrix.shard }})
+        run: bunx playwright test --shard=${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trace-${{ strategy.job-index }}
+          path: playwright-report/
+
+  # ──────────────────────────────────────────────
+  # Nightly tier — mutation, load, chaos
+  # ──────────────────────────────────────────────
+  mutation:
+    name: Mutation testing (Stryker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Stryker
+        run: bun run test:mutation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: mutation-report/
+
+  load-test:
+    name: Load test (k6 → staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - name: Run load test
+        run: k6 run k6/load-test.ts
+        env:
+          API_URL: ${{ secrets.STAGING_URL }}
+          TOKEN: ${{ secrets.STAGING_TOKEN }}

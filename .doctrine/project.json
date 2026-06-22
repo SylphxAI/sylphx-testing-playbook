@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "repo": "SylphxAI/sylphx-testing-playbook",
+    "name": "Sylphx Testing Playbook",
+    "lifecycle": "active",
+    "layer": "research",
+    "summary": "Sylphx Testing Playbook is a reusable documentation and template catalog for modern software testing methods, selection guides, and case studies.",
+    "goals": [
+      "Maintain the testing-method taxonomy, maturity matrix, selection guide, templates, language notes, and case study.",
+      "Keep testing guidance reusable across repositories rather than product-specific.",
+      "Keep drift-prone tool and benchmark claims evidence-backed and reviewable."
+    ],
+    "nonGoals": [
+      "Own individual product repositories' CI pipelines, fixtures, or production quality proof.",
+      "Replace enterprise engineering doctrine or repository-specific project manifests.",
+      "Present speculative tools, benchmarks, or current ecosystem claims without supporting evidence."
+    ]
+  },
+  "boundaries": {
+    "owns": [
+      {
+        "name": "testing-method-playbook",
+        "description": "Reusable testing method descriptions, ranking, selection guidance, language notes, templates, and case-study documentation."
+      }
+    ],
+    "doesNotOwn": [
+      "Concrete test suites, CI policies, and production proof in consuming repositories.",
+      "Enterprise doctrine, org-wide rulesets, or reusable workflow implementation.",
+      "Vendor roadmaps or external tool maintenance state."
+    ],
+    "publicSurfaces": [
+      {
+        "type": "documentation",
+        "name": "Testing playbook documentation",
+        "location": "README.md, methods/, matrix/, languages/"
+      },
+      {
+        "type": "documentation",
+        "name": "Copyable testing templates",
+        "location": "templates/"
+      },
+      {
+        "type": "documentation",
+        "name": "Testing case study",
+        "location": "case-studies/sylphx-managed-resource-controller.md"
+      },
+      {
+        "type": "workflow",
+        "name": "Playbook CI workflow",
+        "location": ".github/workflows/ci.yml"
+      }
+    ],
+    "allowedDependencies": [
+      {
+        "repo": "SylphxAI/doctrine",
+        "surface": "enterprise engineering doctrine",
+        "direction": "downward"
+      }
+    ],
+    "forbiddenCouplings": [
+      "Do not make one product repository's local testing workflow the default for all consumers.",
+      "Do not encode enterprise policy here when the decision belongs in SylphxAI/doctrine.",
+      "Do not state current tool maturity, maintenance, or benchmark facts without evidence when those facts can drift."
+    ]
+  },
+  "documentation": {
+    "adr": {
+      "path": "PROJECT.md",
+      "status": "planned"
+    },
+    "specs": {
+      "path": "methods/ and matrix/",
+      "status": "present"
+    },
+    "catalog": {
+      "path": "PROJECT.md",
+      "status": "present"
+    },
+    "runbooks": {
+      "path": "AGENTS.md",
+      "status": "present"
+    },
+    "generatedReferences": {
+      "path": "not-applicable: documentation repository",
+      "status": "not-applicable"
+    }
+  },
+  "delivery": {
+    "ciModel": "legacy-ci",
+    "requiredContexts": [
+      "Markdown lint",
+      "Internal link check"
+    ],
+    "deployPath": "No hosted deploy path is declared. Default-branch documentation is the published source of truth.",
+    "productionProof": "Markdown lint and internal link check pass, followed by default-branch readback for changed documentation.",
+    "recoveryClass": "source-revertable"
+  },
+  "commercial": {
+    "status": "not-applicable",
+    "decisionHome": "not-applicable: reusable documentation and template catalog",
+    "pricingSourceOfTruth": "not-applicable: no direct pricing surface",
+    "metricsSourceOfTruth": "repository traffic/adoption in consuming repos if later measured",
+    "requiredRecords": [
+      "none"
+    ],
+    "guardrails": [
+      "Commercial packaging or pricing decisions belong in consuming products or a future explicit commercial ADR."
+    ]
+  },
+  "adoption": {
+    "status": "baseline",
+    "gaps": [
+      {
+        "id": "adr29-admission",
+        "description": "Repository uses a legacy docs CI workflow and has not adopted ADR-29 admission fan-in contexts.",
+        "owner": "SylphxAI/sylphx-testing-playbook",
+        "target": "before full doctrine adoption"
+      }
+    ]
+  }
+}

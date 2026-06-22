@@ -1,6 +1,6 @@
 # Agent Instructions
 
-Engineering doctrine: https://github.com/SylphxAI/doctrine
+Engineering doctrine: [SylphxAI/doctrine](https://github.com/SylphxAI/doctrine)
 
 Before changing this repository, read `PROJECT.md`, `.doctrine/project.json`,
 and the triggered standards in `SylphxAI/doctrine`.

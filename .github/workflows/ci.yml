@@ -81,6 +81,7 @@ jobs:
       - uses: lycheeverse/lychee-action@v2
         if: needs.changed-markdown.outputs.has_files == 'true'
         with:
+          failIfEmpty: false
           args: >-
             --verbose
             --no-progress

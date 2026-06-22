@@ -8,7 +8,7 @@ case study for production-grade quality programs.
 
 - Lifecycle: `active`
 - Layer: `research`
-- Doctrine source of truth: [SylphxAI/doctrine](https://github.com/SylphxAI/doctrine)
+- Doctrine source of truth: `SylphxAI/doctrine`
 - Machine manifest: `.doctrine/project.json`
 
 ## Goals

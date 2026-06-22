@@ -8,22 +8,78 @@ on:
     types: [checks_requested]
 
 jobs:
+  changed-markdown:
+    name: Changed Markdown
+    runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.changed.outputs.files }}
+      has_files: ${{ steps.changed.outputs.has_files }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: changed
+        name: Detect affected Markdown files
+        shell: bash
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            if [[ -n "${BEFORE_SHA}" && ! "${BEFORE_SHA}" =~ ^0+$ ]]; then
+              git diff --name-only --diff-filter=ACMR "${BEFORE_SHA}..HEAD" -- '*.md' > /tmp/markdown-files
+            else
+              git ls-files '*.md' > /tmp/markdown-files
+            fi
+          else
+            git fetch --no-tags --depth=1 origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+            git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" -- '*.md' > /tmp/markdown-files
+          fi
+
+          if [[ -s /tmp/markdown-files ]]; then
+            echo "has_files=true" >> "${GITHUB_OUTPUT}"
+            {
+              echo "files<<EOF"
+              cat /tmp/markdown-files
+              echo "EOF"
+            } >> "${GITHUB_OUTPUT}"
+          else
+            echo "has_files=false" >> "${GITHUB_OUTPUT}"
+            {
+              echo "files<<EOF"
+              echo ""
+              echo "EOF"
+            } >> "${GITHUB_OUTPUT}"
+          fi
+
   markdown-lint:
     name: Markdown lint
     runs-on: ubuntu-latest
+    needs: changed-markdown
     steps:
       - uses: actions/checkout@v4
+      - name: No affected Markdown files
+        if: needs.changed-markdown.outputs.has_files != 'true'
+        run: echo "No affected Markdown files to lint."
       - uses: DavidAnson/markdownlint-cli2-action@v16
+        if: needs.changed-markdown.outputs.has_files == 'true'
         with:
-          globs: '**/*.md'
+          globs: ${{ needs.changed-markdown.outputs.files }}
           config: '.markdownlint.json'
 
   link-check:
     name: Internal link check
     runs-on: ubuntu-latest
+    needs: changed-markdown
     steps:
       - uses: actions/checkout@v4
+      - name: No affected Markdown files
+        if: needs.changed-markdown.outputs.has_files != 'true'
+        run: echo "No affected Markdown files to link-check."
       - uses: lycheeverse/lychee-action@v2
+        if: needs.changed-markdown.outputs.has_files == 'true'
         with:
           args: >-
             --verbose
@@ -31,4 +87,4 @@ jobs:
             --accept=200,403,429
             --timeout=30
             --exclude-path='node_modules'
-            './**/*.md'
+            ${{ needs.changed-markdown.outputs.files }}
